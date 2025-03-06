@@ -18,6 +18,7 @@ mkdir test1
 ```
 mkdir -p practice_test/test1
 ```
+The flag -p ensure to create all non-existial directories in the path we have given the mkdir command.
 # Third step
 Create the empty file in test1 that is called test.txt:
 ```
