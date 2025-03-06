@@ -1,3 +1,3 @@
 ```
-find /etc -maxdepth 2 -mindepth 2 -type d
+find /etc -maxdepth 2 -mindepth 1 -type d
 ```
