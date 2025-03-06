@@ -1,5 +1,5 @@
 Print all directories in the /home directory
 ```
-ls -d /home/*/
+find /home -type d
 ```
 -d prints all directories
