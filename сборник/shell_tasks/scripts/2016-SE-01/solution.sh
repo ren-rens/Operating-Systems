@@ -12,7 +12,7 @@ if [[ ! -d "${1}" ]]; then
 fi
  
 while read link; do
-    if [[ ! -f $(readlink -q "${link}") ]]; then
+    if [[ ! -e $(readlink -q "${link}") ]]; then
     echo "${link}"
     fi
 done< <(find "${1}" -type l)
