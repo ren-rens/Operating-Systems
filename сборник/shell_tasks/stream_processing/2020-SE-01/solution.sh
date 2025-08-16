@@ -1,2 +1,2 @@
 #!/bin/bash
-find "${HOME}" -type f -perm 0022  -exec chmod g+w {} \;
+find "${HOME}" -type f -perm 0644  -exec chmod g+w {} \;
