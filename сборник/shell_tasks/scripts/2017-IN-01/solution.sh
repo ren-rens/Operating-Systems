@@ -22,12 +22,12 @@ if [[ "${str2_seen}" -eq 0 ]]; then
     exit 0;
 fi
 
- value1=$(grep -E "^${2}=[[:alnum:] ]*$" "${1}" | cut -d '=' -f 2)
+value1=$(grep -E "^${2}=[[:alnum:] ]*$" "${1}" | cut -d '=' -f 2)
 value2=$(grep -E "^${3}=[[:alnum:] ]*$" "${1}" | cut -d '=' -f 2)
 
- values=$(mktemp)
+values=$(mktemp)
 
- while read -d ' ' term_value2; do
+while read -d ' ' term_value2; do
     while read -d ' ' term_value1; do
         if [[ "${term_value1}" == "${term_value2}" ]]; then
             echo "${term_value2}" >> "${values}"
@@ -36,8 +36,8 @@ value2=$(grep -E "^${3}=[[:alnum:] ]*$" "${1}" | cut -d '=' -f 2)
     done< <(echo "${value1}")
 done< <(echo "${value2}")
 
- while read line; do
+while read line; do
     sed -i -E "s/^${3}=([[:alnum:] ]*)(${line} )([[:alnum:] ]*)$/${3}=\1\3/" "${1}"
 done< <(cat "${values}")
 
- rm "${values}"
+rm "${values}"
