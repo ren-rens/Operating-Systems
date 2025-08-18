@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 if [[ "${USER}" != "root" ]]; then
     echo "not root!"
     exit 1
