@@ -1,58 +1,54 @@
 #!/bin/bash
 
 last_arg_jar=0
-last_arg_filename=0
 options=$(mktemp)
 args=$(mktemp)
 filename=""
 valid=0
 
-for i in "${@}"; do
-    if [[ "${i}" == "java" ]]; then
+for i in "$@"; do
+    if [[ "$i" == "java" ]]; then
         valid=1
         continue
     fi
 
-    if [[ "${i}" == "-jar" ]]; then
+    if [[ "$i" == "-jar" ]]; then
         last_arg_jar=1
-        last_arg_filename=0
         continue
     fi
 
-    if [[ "${last_arg_jar}" -eq 0 ]] && [[ "${last_arg_filename}" -eq 0 ]]; then
-        if [[ "${i}" =~ D(.*)=(.+) ]]; then
-            # options
-            echo "${i}" >> "${options}"
-        else
-            # invalid placement
-            def=$(echo "${i}" | cut -d '=' -f 1)
-            echo "${def}=default" >> "${options}"
+    if [[ $last_arg_jar -eq 1 ]]; then
+        if [[ "$i" == *.jar ]]; then
+            filename="$i"
+            last_arg_jar=0
         fi
+        continue
     fi
 
-    # filename after -jar
-    if [[ "${last_arg_jar}" -eq 1 ]]; then
-        filename="${i}"
-        last_arg_filename=1
-        last_arg_jar=0
-        continue
-    elif [[ "${last_arg_filename}" -eq 1 ]]; then
-        # args
-        echo "${i}" >> "${args}"
-        continue
+    if [[ -n "$filename" ]]; then
+        echo "$i" >> "$args"
+    else
+        if [[ "$i" =~ ^-D[^=]+=.+$ ]]; then
+            # valid option -D
+            echo "$i" >> "$options"
+        else
+            # invalid option → property=default
+            def=$(echo "$i" | cut -d '=' -f 1)
+            echo "-D${def}=default" >> "$options"
+        fi
     fi
 done
 
-opts=$(cat "${options}" | tr '\n' ' ')
-arguments=$(cat "${args}" | tr '\n' ' ')
+opts=$(tr '\n' ' ' < "$options")
+arguments=$(tr '\n' ' ' < "$args")
 
-rm "${options}"
-rm "${args}"
+rm "$options" "$args"
 
-if [[ "${valid}" -eq 1 ]]; then
-    # can be executed
+if [[ $valid -eq 1 && -n "$filename" ]]; then
     echo "Executing java program"
     echo "java ${opts}-jar ${filename} ${arguments}"
+    exec java ${opts}-jar "$filename" $arguments
 else
     echo "Cannot execute java program"
+    exit 1
 fi
