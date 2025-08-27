@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <err.h>
@@ -20,11 +22,11 @@ uint16_t find_xor(int fd, uint32_t offset, uint32_t len) {
         err(3, "fstat error");
     }
 
-    if (st.st_size * sizeof(uint16_t) < offset * sizeof(uint32_t) + len * sizeof(uint32_t)) {
+    if (st.st_size / sizeof(uint16_t) < offset + len) {
         errx(1, "invalid input: file size is not enough");
     }
 
-    if (lseek(fd, offset, SEEK_SET) == -1) {
+    if (lseek(fd, offset * sizeof(uint16_t), SEEK_SET) == -1) {
         err(8, "lseek error");
     }
 
@@ -43,16 +45,18 @@ uint16_t find_xor(int fd, uint32_t offset, uint32_t len) {
 
 void read_current_file(int i) {
     int new_fd = open(files[i].filename, O_RDONLY);
+
     if (new_fd == -1) {
         err(2, "open error: opening new file");
     }
- 
+
     uint16_t xor = find_xor(new_fd, files[i].offset, files[i].len);
     close(new_fd);
 
     if (write(pfd[i][1], &xor, sizeof(xor)) == -1) {
         err(6, "write error: in pipe");
     }
+
     close(pfd[i][1]);
 }
 
@@ -69,14 +73,14 @@ void assign_pipes(int count) {
             for (int j = 0; j < count; j++) {
                 if (j == i) {
                     close(pfd[i][0]);
-                }
-                else {
+                } else {
                     close(pfd[j][0]);
                     close(pfd[j][1]);
                 }
             }
 
             read_current_file(i);
+            exit(0);
         }
     }
 
@@ -96,9 +100,19 @@ void read_file(char* file) {
         err(3, "fstat error");
     }
 
+    if (st.st_size % sizeof(my_file) != 0) {
+        errx(1, "invalid input: sizeof argument file is incorrect");
+    }
+
     int elements_count = st.st_size / sizeof(my_file);
     if (elements_count > 8) {
         errx(1, "invalid input: file has more than 8 elements");
+    }
+
+    for (int i = 0; i < elements_count; i++) {
+        if (pipe(pfd[i]) == -1) {
+            err(5, "pipe error");
+        }
     }
 
     for (int i = 0; i < elements_count; i++) {
@@ -111,6 +125,8 @@ void read_file(char* file) {
 
     assign_pipes(elements_count);
 
+    close(fd);
+
     uint16_t xor = 0;
     for (int i = 0; i < elements_count; i++) {
         uint16_t num;
@@ -119,11 +135,14 @@ void read_file(char* file) {
         }
 
         close(pfd[i][0]);
-
         xor ^= num;
     }
 
-    printf("%d\n", xor);
+    char res_str[8];
+    snprintf(res_str, sizeof(res_str), "%04X\n", xor);
+    if (write(1, res_str, sizeof(res_str)) < 0) {
+        err(14, "err writing result to stdout");
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -131,13 +150,7 @@ int main(int argc, char* argv[]) {
         errx(1, "invalid input: one argument needed!");
     }
 
-    for (int i = 0; i < count; i++) {
-        if (pipe(pfd[i]) == -1) {
-            err(5, "pipe error");
-        }
-    }
-
     read_file(argv[1]);
 
-        return 0;
+    return 0;
 }
