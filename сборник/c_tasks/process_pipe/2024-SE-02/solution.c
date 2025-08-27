@@ -5,6 +5,7 @@
 #include <err.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <signal.h>
 #include <stdio.h>
 
 int child_pid[11];
@@ -25,50 +26,79 @@ void start_process(char* arg, int idx) {
     child_pid[idx] = pid;
 }
 
+int find_index(int agrc, int pid) {
+    int idx = -1;
+    for (int i = 1; i < argc; i++) {
+        if (child_pid[i] == pid) {
+            return idx;
+        }
+    }
+
+    return -1;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2 || argc > 11) {
         errx(1, "invalid input: arguments must be 1-10");
     }
 
-    int pfd[2][10];
     for (int i = 1; i < argc; i++) {
-        if (pipe(pfd[i]) == -1) {
-            err(2, "pipe error");
-        }
         start_process(argv[i], i);
     }
+
     int count = 0;
-    int idx = 1;
     while (count != argc) {
         int st;
-        if (waitpid(child_pid[idx], &st, 0) == -1) {
+        pid = wait(&st);
+        if (pid == -1) {
             err(5, "wait error");
         }
-        if (!WIFEXITED(st)) {
+
+        int idx = find_index(argc, pid);
+
+        if (idx == -1) {
+            continue;
+        }
+
+        if (WIFSIGNALED(st)) {
             // process was killed
             for (int i = 1; i < argc; i++) {
-                if (child_pid[i] == 0) {
+                if (i == idx) {
                     continue;
                 }
 
-                if (kill(child_pid[i], SIGTERM) == 0) {
-                    err(6, "kill error");
+                if (child_pid[i] > 0) {
+                    if (kill(child_pid[i], SIGTERM) == -1) {
+                        err(6, "kill error");
+                    }
+                }
+            }
+
+            for (int i = 1; i < argc; i++) {
+                if (i == idx) {
+                    continue;
+                }
+
+                if (child_pid[i] > 0) {
+                    waitpid(child_pid[i], NULL, 0);
                 }
             }
 
             exit(idx);
         }
 
-        if (WEXITSTATUS(st) != 0) {
+        if (WIFEXITED(st)) {
             // process ended with exit status not null
             // start again
-
+            int code = WEXITSTATUS(st);
+            if (code == 0) {
+                child_pid[idx] = 0;
+                count++;
+                continue;
+            }
             start_process(argv[idx], idx);
+            continue;
         }
-
-        child_pid[idx] = 0;
-        count++;
-        idx++;
     }
 
         return 0;
